@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Survey Word Export</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background-color: #2E3B4E; /* Dark slate color */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .container {
+      background-color: #394867; /* Slightly lighter slate */
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+      width: 80%;
+      max-width: 800px;
+      text-align: center;
+      color: #F5F5F5; /* Light text color */
+    }
+    h2 {
+      color: #A3CFCD; /* Soft teal */
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #A3CFCD; /* Soft teal */
+      color: #2E3B4E; /* Dark slate for contrast */
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s, transform 0.2s;
+    }
+    button:hover {
+      background-color: #82B3AF; /* Slightly darker teal */
+      transform: scale(1.05);
+    }
+    .loading {
+      color: #A3CFCD; /* Soft teal */
+      font-weight: bold;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background-color: #394867; /* Slightly lighter slate */
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      border: 1px solid #2E3B4E; /* Dark slate */
+      padding: 10px;
+      text-align: left;
+      color: #F5F5F5; /* Light text color */
+    }
+    th {
+      background-color: #A3CFCD; /* Soft teal */
+      color: #2E3B4E; /* Dark slate */
+    }
+    td {
+      transition: background-color 0.3s;
+    }
+    td:hover {
+      background-color: #4A5A6A; /* Slightly lighter slate */
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Export Decipher Survey to Word</h2>
+
+  <input id="input" placeholder="Survey ID or Survey Name" size="40">
+  <button onclick="lookup()">Lookup</button>
+  <span id="loading" class="loading" style="display: none;">Searching...</span>
+
+  <table id="results">
+    <thead>
+      <tr>
+        <th>Survey Name</th>
+        <th>Path</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Results will be dynamically inserted here -->
+    </tbody>
+  </table>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
