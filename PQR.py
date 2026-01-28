@@ -14,6 +14,7 @@ from html import unescape
 LOGIC_RED = RGBColor(255, 0, 0)
 INFO_BLUE = RGBColor(68, 114, 196)
 GRAY_TEXT = RGBColor(128, 128, 128)
+YELLOW_TEXT = RGBColor(255, 192, 0)
 
 # =========================
 # GLOBAL CONSTANTS
@@ -93,6 +94,13 @@ def generate_word_from_xml_file(xml_path, output_path):
         r.font.color.rgb = RGBColor(0, 0, 255)
         r.bold = bold_flag
         return p
+    
+    def yellow_text(text, style=None, bold_flag=False):
+        p = doc.add_paragraph(style=style) if style else doc.add_paragraph()
+        r = p.add_run(text)
+        r.font.color.rgb = RGBColor(255, 192, 0)
+        r.bold = bold_flag
+        return p
 
     # =========================
     # LEGEND / INSTRUCTIONS
@@ -109,6 +117,12 @@ def generate_word_from_xml_file(xml_path, output_path):
     r2 = p2.add_run("Blue highlighted for Instructions")
     r2.bold = True
     r2.font.color.rgb = RGBColor(68, 114, 196)
+    
+    # Yellow bullet – Hidden Questions
+    p3 = doc.add_paragraph(style="List Bullet")
+    r3 = p3.add_run("All hidden question label will be highlighted in yellow")
+    r3.bold = True
+    r3.font.color.rgb = RGBColor(255, 192, 0)
 
     # =========================
     # QUESTION_TYPES
@@ -120,6 +134,84 @@ def generate_word_from_xml_file(xml_path, output_path):
     # =========================
 
     LAST_ELEMENT_WAS_SUSPEND = False
+    
+    def clean_html(text):
+        # Remove span and br tags
+        text = re.sub(r"</?span[^>]*>", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
+        return text.strip()
+
+
+    def add_html_with_lists(doc, parent_paragraph, html_text):
+        """
+        Converts <ul><li />Text into real Word bullet points
+        """
+
+        if not html_text:
+            return
+
+        html_text = unescape(html_text)
+
+        # Remove <ul> tags
+        html_text = re.sub(r"</?ul[^>]*>", "", html_text, flags=re.IGNORECASE)
+
+        # Split on <li /> or <li/>
+        items = re.split(r"<li\s*/\s*>", html_text, flags=re.IGNORECASE)
+
+        # First item = text before first <li />
+        first = items.pop(0).strip()
+        if first:
+            add_text_with_inline_html(parent_paragraph, clean_html(first))
+
+        # Remaining items = bullets
+        for item in items:
+            text = clean_html(item).strip()
+            if not text:
+                continue
+
+            bp = doc.add_paragraph(style="List Bullet")
+            add_text_with_inline_html(bp, text)
+
+
+    def question_is_yellow(q):
+        where = q.get("where", "")
+        if not where:
+            return False
+
+        where_parts = {w.strip().lower() for w in where.split(",")}
+        trigger_values = {"survey", "notdp", "execute", "report", "none"}
+
+        return bool(where_parts & trigger_values)
+
+    def shade_question_block(paragraphs, fill="FFF2CC"):
+        """
+        Applies background shading to a list of paragraphs
+        """
+        for p in paragraphs:
+            pPr = p._p.get_or_add_pPr()
+
+            shd = OxmlElement("w:shd")
+            shd.set(qn("w:val"), "clear")
+            shd.set(qn("w:color"), "auto")
+            shd.set(qn("w:fill"), fill)
+
+            pPr.append(shd)
+
+
+    def set_paragraph_background(paragraph, fill="FFF2CC"):
+        """
+        Sets paragraph background shading (Word highlight-style)
+        Default fill = light yellow
+        """
+        p = paragraph._p
+        pPr = p.get_or_add_pPr()
+
+        shd = OxmlElement("w:shd")
+        shd.set(qn("w:val"), "clear")
+        shd.set(qn("w:color"), "auto")
+        shd.set(qn("w:fill"), fill)
+
+        pPr.append(shd)
 
     def extract_tooltip_from_text(text):
 
@@ -229,7 +321,7 @@ def generate_word_from_xml_file(xml_path, output_path):
         text = text.replace("&nbsp;", " ")
 
         tokens = re.split(
-            r'(</?(?:strong|b|i|em|u|span|li)[^>]*>|<br\s*/?>)',
+            r'(</?(?:strong|b|i|em|u|span)[^>]*>|<br\s*/?>)',
 
             text,
             flags=re.IGNORECASE
@@ -255,10 +347,7 @@ def generate_word_from_xml_file(xml_path, output_path):
                 underline = False
             elif t.startswith("<br"):
                 p.add_run("\n")
-        # -------- Bullet handling --------
-            elif t == "<li":
-                # create a NEW bullet paragraph
-                p = p._parent.add_paragraph(style="List Bullet")                
+                          
             elif t.startswith("<span"):
                 m = re.search(r'color\s*:\s*(#[0-9a-fA-F]{6})', t)
                 if m:
@@ -273,7 +362,7 @@ def generate_word_from_xml_file(xml_path, output_path):
                 if color:
                     run.font.color.rgb = color
 
-
+    '''
     def render_list(elem):
         """Renders <ul><li>...</li></ul> as Word bullets"""
         for li in elem.xpath('./*[local-name()="li"]'):
@@ -287,7 +376,7 @@ def generate_word_from_xml_file(xml_path, output_path):
                 add_text_with_inline_html(p, c.text or "")
             if c.tail:
                 add_text_with_inline_html(p, c.tail)
-
+'''
     def should_export(elem):
         """
         Controls export range between te1 and b3
@@ -572,7 +661,7 @@ def generate_word_from_xml_file(xml_path, output_path):
 
             for c in node:
                 tag = local(c.tag)
-                #run = p.add_run(c.text or "")
+                run = p.add_run(c.text or "")
                 add_text_with_inline_html(p, c.text or "")
 
                 if tag in {"b", "strong"}:
@@ -585,8 +674,7 @@ def generate_word_from_xml_file(xml_path, output_path):
                     run.underline = True
                 elif tag == "br":
                     p.add_run("\n")
-                elif tag == "li":
-                    p.style = "List Bullet"
+                
 
 
                 if c.tail:
@@ -824,13 +912,14 @@ def generate_word_from_xml_file(xml_path, output_path):
                 #p.add_run(node.text)
                 add_text_with_inline_html(p, node.text)
             for c in node:
-                #run = p.add_run(c.text or "")
+                run = p.add_run(c.text or "")
                 add_text_with_inline_html(p, c.text or "")
                 # ✅ REAL LIST HANDLING
+                '''
                 if tag == "ul":
                     render_list(c)
                     continue
-
+              '''
                 tag = local(c.tag)
                 if tag in {"b", "strong"}:
                     run.bold = True
@@ -1143,17 +1232,51 @@ def generate_word_from_xml_file(xml_path, output_path):
         qtype = local(q.tag).upper()
 
         uses_name = resolve_uses_question_name(q)
+        p = doc.add_heading("", level=4)
+
+        is_yellow = question_is_yellow(q)
+
+        # 👉 Hidden question
+        if is_yellow:
+            r_hidden = p.add_run("Hidden: ")
+            r_hidden.bold = True
+            r_hidden.font.color.rgb = RGBColor(0, 0, 0)  # black
+
+            r_label = p.add_run(
+                f"{label} ({uses_name})" if uses_name else f"{label} ({qtype})"
+            )
+            r_label.bold = True
+
+            # Yellow background ONLY for header
+            set_paragraph_background(p)
+
+        # 👉 Normal question (NO CHANGE)
+        else:
+            r = p.add_run(
+                f"{label} ({uses_name})" if uses_name else f"{label} ({qtype})"
+            )
+            r.bold = True
+        '''   
         if uses_name:
             doc.add_heading(f"{label} ({uses_name})", level=4)
         else:
             doc.add_heading(f"{label} ({qtype})", level=4)
-
+        '''
         # Display condition
         if q.get("cond"):
             red_text(f"Display Condition: {q.get('cond')}")
 
         # Render question text
-        add_rich_text(title_elem, "Question: ")
+        #add_rich_text(title_elem, "Question: ")
+        p = doc.add_paragraph()
+        r = p.add_run("Question: ")
+        r.bold = True
+
+        html_text = etree.tostring(title_elem, encoding="unicode", method="html")
+        html_text = re.sub(r"</?title[^>]*>", "", html_text)
+
+        add_html_with_lists(doc, p, html_text)
+
 
     
         # Add tooltip definition directly below question
